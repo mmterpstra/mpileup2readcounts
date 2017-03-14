@@ -81,7 +81,11 @@ class mpileup_line {
 		std::vector<std::string> vectDeletion;
     	std::vector<std::string> vectInsertion;
     	
-	
+    	//Booleen : if true, one of the sample as min_ao >3
+	   	bool sample_with_min_ao = false;
+	   	
+	   	//Stringstream containing the counts for all samples
+	   	std::stringstream counts_string;
     
         //Initialization 
         mpileup_line() {
@@ -98,6 +102,22 @@ class mpileup_line {
             refFcount = refRcount = 0;
             Acount = Ccount = Gcount = Tcount = Ncount = acount = ccount = gcount = tcount = ncount = 0;
             insertioncount = deletioncount = 0;
+        }
+        
+        //Set index_ref
+        int set_index_ref() {
+            switch(ref_base[0]) {
+                case 'A':
+                    return 0;
+                case 'T':
+                    return 1;
+                case 'C':
+                    return 2;
+                case 'G':
+                    return 3;
+                default:
+                    return 6;
+            }
         }
         
         //Set the appropriate count for ref nucleotide on the forward strand
@@ -185,15 +205,15 @@ class mpileup_line {
         }
   
         //Print line in output 
-        void print_common(ostream& out = cout) {
-            out << chr << "\t"
+        void print_common() {
+            counts_string << chr << "\t"
                 << pos << "\t"
                 << ref_base << "\t";
         }     
         
         void print_sample(bool onesample= false) {
         	if (onesample==true){
-        		cout << depth << "\t"
+        		counts_string << depth << "\t"
 					<< Acount << "\t"
 					<< Tcount << "\t"
 					<< Ccount << "\t"
@@ -205,7 +225,7 @@ class mpileup_line {
 					<< insertionstring << "\t"
 					<< deletionstring;
         	}else{
-        		cout << depth << "\t"
+        		counts_string << depth << "\t"
 					<< Acount << "\t"
 					<< Tcount << "\t"
 					<< Ccount << "\t"
@@ -250,7 +270,7 @@ void indel_parsing(mpileup_line& ml1, int& i,bool del,bool noindel) {
 }
 
 // Get indelstrings 
-void indel_string(mpileup_line& ml1, bool del){
+void indel_string(mpileup_line& ml1, bool del, vector<int>& total_counts){
 	
 	// Hash function for the hashtable.
 	auto h = [](const std::string* s) {
@@ -267,13 +287,16 @@ void indel_string(mpileup_line& ml1, bool del){
 	    if(ml1.deletionstring=="NA"){
     		ml1.deletionstring="";
     	}
-
 		// Unordered map to parse deletions
 		std::unordered_map<const std::string*, size_t, decltype(h), decltype(eq)> m(ml1.vectDeletion.size(),h,eq);
 		// Count occurances.
 		for (auto v_i = ml1.vectDeletion.cbegin(); v_i != ml1.vectDeletion.cend(); ++v_i){
 			++m[&(*v_i)];
 		}
+		
+		// Map to store deletions_toupper
+		std::map<string,int> m_upper;
+		
 		int i=1;
 		for (auto m_i = m.begin(); m_i != m.end(); ++m_i){
 			if (i == m.size()){
@@ -281,9 +304,35 @@ void indel_string(mpileup_line& ml1, bool del){
 			}else{
 				ml1.deletionstring = ml1.deletionstring + to_string(m_i->second) + ':' + *m_i->first + '|';
 			}	
+			
+			if(ml1.sample_with_min_ao==false ){
+				string del=*m_i->first;
+				std::transform(del.begin(), del.end(), del.begin(), ::toupper);
+				if(m_upper.count(del)){
+					m_upper[del]=m_upper[del] + m_i->second;
+				}else {
+					m_upper[del]=m_i->second;
+				}
+			}
+
 			i=i+1;
 		}
+		
+		if(ml1.sample_with_min_ao==false ){
+			// Get max deletions count
+			i=1;
+			int max_del_count= 0;
+			for (auto m_i = m_upper.begin(); m_i != m_upper.end(); ++m_i){
+				if (m_i->second > max_del_count) {
+					max_del_count=m_i->second;
+				}	
+				i=i+1;
+			}
+			total_counts[4]=total_counts[4]+max_del_count;
+		}
+		
 		ml1.vectDeletion.clear();
+		
 	}else{
 		if(ml1.insertionstring=="NA"){
     		ml1.insertionstring="";
@@ -294,22 +343,52 @@ void indel_string(mpileup_line& ml1, bool del){
 		for (auto v_i = ml1.vectInsertion.cbegin(); v_i != ml1.vectInsertion.cend(); ++v_i){
 			++m[&(*v_i)];
 		}
+		
+		// Map to store insertions_toupper
+		std::map<string,int> m_upper;
+		
 		int i=1;
 		for (auto m_i = m.begin(); m_i != m.end(); ++m_i){
 			if (i == m.size()){
-					ml1.insertionstring = ml1.insertionstring + to_string(m_i->second) + ':' + *m_i->first;
-				}else{
-					ml1.insertionstring = ml1.insertionstring + to_string(m_i->second) + ':' + *m_i->first + '|';
-				}	
+				ml1.insertionstring = ml1.insertionstring + to_string(m_i->second) + ':' + *m_i->first;
+			}else{
+				ml1.insertionstring = ml1.insertionstring + to_string(m_i->second) + ':' + *m_i->first + '|';
+			}
+			
+			if(ml1.sample_with_min_ao==false ){
+				string ins =*m_i->first;
+				std::transform(ins.begin(), ins.end(), ins.begin(), ::toupper);
+				if(m_upper.count(ins)){
+					m_upper[ins]=m_upper[ins] + m_i->second;
+				}else {
+					m_upper[ins]=m_i->second;
+				}		
+			}
+			
 			i=i+1;
 		}
+		
+		if(ml1.sample_with_min_ao==false ){
+			// Get max insertions count
+			i=1;
+			int max_ins_count= 0;
+			for (auto m_i = m_upper.begin(); m_i != m_upper.end(); ++m_i){
+				if (m_i->second > max_ins_count) {
+					max_ins_count=m_i->second;
+				}	
+				i=i+1;
+			}
+			total_counts[5]=total_counts[5]+max_ins_count;
+		}
+		
 		ml1.vectInsertion.clear();
 	}
 		
 }
 
+
 //Readcounts
-void parse_bases_to_readcounts(mpileup_line& ml1, bool noindel,int BQcut) {   
+void parse_bases_to_readcounts(mpileup_line& ml1, bool noindel,int BQcut, int min_ao, vector<int>& total_counts) {   
 
 	int j=0;
     for(int i = 0; i < ml1.bases.length(); i++) {
@@ -417,18 +496,28 @@ void parse_bases_to_readcounts(mpileup_line& ml1, bool noindel,int BQcut) {
 				throw runtime_error("Unknown ref base: " );
 		}   
     }
+    
+
+    if(ml1.sample_with_min_ao==false ){
+		total_counts[0]= ml1.Acount + ml1.acount;
+		total_counts[1]= ml1.Tcount + ml1.tcount;
+		total_counts[2]= ml1.Ccount + ml1.ccount;
+		total_counts[3]= ml1.Gcount + ml1.gcount;
+	}
+	
     if(ml1.deletioncount > 0 && noindel==false){
-    	indel_string(ml1,true);
+    	indel_string(ml1,true,total_counts);
     }
     if(ml1.insertioncount > 0 && noindel==false){
-    	indel_string(ml1,false);
+    	indel_string(ml1,false,total_counts);
     }
     
 }
 
 //Parsing of the splited pileupline 
 //If all samples are being parsed
-void process_mpileup_line(std::vector<std::string> line, int nsamples,bool noindel,int BQcut) {
+void process_mpileup_line(std::vector<std::string> line, int nsamples,bool noindel,int BQcut, int min_ao) {
+   	
    	int n=nsamples;
    	
 	// characteristics in common for all samples
@@ -436,38 +525,69 @@ void process_mpileup_line(std::vector<std::string> line, int nsamples,bool noind
     ml1.chr= line[0]; 
     ml1.pos = str_to_num(line[1]); 
     ml1.ref_base= line[2];
-    ml1.print_common();
     
-    // characteristics which are different for each sample
-	for (int i = 3 ;i<(n*3 + 3);i+=3) {
-		ml1.reinitializing(); //Reinitialisation for the next sample
-    	ml1.bases= line[i+1];
-    	ml1.qual= line[i+2];
-		parse_bases_to_readcounts(ml1,noindel,BQcut);
-		//Only ATGCatgc are taking into account for the depth 
-		ml1.depth = ml1.Acount + ml1.Tcount + ml1.Ccount + ml1.Gcount + ml1.acount + ml1.tcount + ml1.ccount + ml1.gcount;
-		ml1.print_sample(false);
+    
+    int index_ref=ml1.set_index_ref();
+    
+    if(index_ref!=6){
+		ml1.print_common();
+		
+		// characteristics which are different for each sample
+		for (int i = 3 ;i<(n*3 + 3);i+=3) {  
+			ml1.reinitializing(); //Reinitialisation for the next sample
+			vector<int> total_counts(6,0);
+			ml1.bases= line[i+1];
+			ml1.qual= line[i+2];
+			parse_bases_to_readcounts(ml1,noindel,BQcut,min_ao,total_counts);
+			ml1.depth = ml1.Acount + ml1.Tcount + ml1.Ccount + ml1.Gcount + ml1.acount + ml1.tcount + ml1.ccount + ml1.gcount; //Only ATGCatgc are taking into account for the depth 
+			ml1.print_sample(false); // store into stringstream	
+			
+			if(ml1.sample_with_min_ao==false ){
+				/*
+				ml1.counts_string << "|" ;
+				for (auto i: total_counts)
+					ml1.counts_string << i << ' ';
+				ml1.counts_string << "|" ;
+				* */
+				
+				total_counts.erase(total_counts.begin() + index_ref);
+				if( (std::count_if(total_counts.begin(), total_counts.end(), [&](int c){return c >= min_ao;}))>0 ){
+					ml1.sample_with_min_ao=true;
+				}
+				/*
+				ml1.counts_string << "|" ;	
+				for (auto i: total_counts)
+					ml1.counts_string << i << ' ';
+				ml1.counts_string << "|" ;	
+				*/
+			}
 		}
-    cout << endl;
-	
+
+		if(ml1.sample_with_min_ao==true){
+			cout << ml1.counts_string.str() << endl;
+		}
+	}	
 }
+
 //If only one sample is being parsed 
-void process_mpileup_line_onesample(std::vector<std::string> line,int sample,bool noindel,int BQcut) {
+void process_mpileup_line_onesample(std::vector<std::string> line,int sample,bool noindel,int BQcut,int min_ao) {
    	
     mpileup_line ml1;
+    ml1.sample_with_min_ao==true; // min_ao threshold not applied in this case
     ml1.chr= line[0]; 
     ml1.pos = str_to_num(line[1]); 
     ml1.ref_base= line[2];
     ml1.print_common();
-
+	
+	vector<int> total_counts(6,0);
 	int i = 3+ (sample-1)*3; //i=number(ID) of the concerned sample
 	ml1.reinitializing();
 	ml1.bases= line[i+1];
 	ml1.qual= line[i+2];
-	parse_bases_to_readcounts(ml1,noindel,BQcut);	
+	parse_bases_to_readcounts(ml1,noindel,BQcut,min_ao,total_counts);	
 	ml1.depth = ml1.Acount + ml1.Tcount + ml1.Ccount + ml1.Gcount + ml1.acount + ml1.tcount + ml1.ccount + ml1.gcount;
 	ml1.print_sample(true);		
-    cout << endl;
+    cout << ml1.counts_string.str() << endl;
 	
 }
 
@@ -480,6 +600,7 @@ void show_usage(std::string name)
               << "\tSAMPLE\t\t0 to parse all sample otherwise specify the number of the sample (for example 1 for the first sample)\n"
               << "\tBQcut\t\tbase quality score cutoff for each mapped/unmapped base, only those larger than cutoff will be output in the result, to use no filter set BQcut to -5\n"
               << "\tnoindel\t\tIgnore indels if true\n"
+              << "\tmin_ao\t\t minimum number of non-ref reads in at least one sample to consider a site\n"
               << std::endl;
 }
 
@@ -492,7 +613,7 @@ int main(int argc, char* argv[]) {
         return 0;
     } 
     
-    if (argc < 3) {
+    if (argc < 4) {
         show_usage(argv[0]);
         return 1;
     }
@@ -506,7 +627,8 @@ int main(int argc, char* argv[]) {
 	}
 	int BQcut = stoi(argv[2]);
 	bool noindel = to_bool(argv[3]);
-
+	int min_ao = stoi(argv[4]);
+	
 	//Errors 
 	string line;
     getline(cin, line);
@@ -534,6 +656,7 @@ int main(int argc, char* argv[]) {
     }
     cout << endl;
     
+   
 	int l=1;
 	//Lines processes
     while(cin) {
@@ -547,9 +670,9 @@ int main(int argc, char* argv[]) {
             	break;
     		}
     		if (onesample==true){
-    			process_mpileup_line_onesample(tokens,sample,noindel,BQcut);
+    			process_mpileup_line_onesample(tokens,sample,noindel,BQcut,min_ao);
     		}else{
-    			process_mpileup_line(tokens,nsamples,noindel,BQcut);
+    			process_mpileup_line(tokens,nsamples,noindel,BQcut,min_ao);
     		}
         } catch(const std::runtime_error& e) {
             cerr << e.what() << endl;
