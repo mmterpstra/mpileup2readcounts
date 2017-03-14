@@ -1,16 +1,16 @@
 [![Build Status](https://travis-ci.org/gatoravi/mpileup2readcounts.svg?branch=master)](https://travis-ci.org/gatoravi/mpileup2readcounts)
-##Synopsis
+## Synopsis
 Get the readcounts at a locus by piping samtools mpileup output. The mpileup can contain one or several samples.
 This program has been tested on samtools v1.3.1
 
-##Install samtools 
+## Install samtools 
 
-##Compile mpileup2readcounts : 
+## Compile mpileup2readcounts : 
 ```
 g++ -std=c++11 -O3 mpileup2readcounts.cc -o mpileup2readcounts
 ```
 
-##Usage
+## Usage
 
 ```
 samtools mpileup -f ref.fa -l regions.bed BAM/*.bam | sed 's/		/	* 	*/g' | ./mpileup2readcounts 0 -5 false 3
@@ -27,7 +27,7 @@ For options for mpileup2readcounts :
 - min_ao : minimum number of non-ref reads in at least one sample to consider a site
 
 
-##Example output
+## Example output
 
 
 | chr |	loc	| ref	| depth	| A	| T	| C	| G	| a	| t	| c	| g	| Insertion	| Deletion	| depth	| A	| T	| C	| G	| a	| t	| c	| g	| Insertion	| Deletion	|
