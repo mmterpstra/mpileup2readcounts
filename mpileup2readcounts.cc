@@ -525,6 +525,7 @@ void process_mpileup_line(std::vector<std::string> line, int nsamples,bool noind
     ml1.chr= line[0]; 
     ml1.pos = str_to_num(line[1]); 
     ml1.ref_base= line[2];
+    std::transform(ml1.ref_base.begin(), ml1.ref_base.end(), ml1.ref_base.begin(), ::toupper);
     
     
     int index_ref=ml1.set_index_ref();
@@ -548,7 +549,7 @@ void process_mpileup_line(std::vector<std::string> line, int nsamples,bool noind
 				for (auto i: total_counts)
 					ml1.counts_string << i << ' ';
 				ml1.counts_string << "|" ;
-				* */
+				*/
 				
 				total_counts.erase(total_counts.begin() + index_ref);
 				if( (std::count_if(total_counts.begin(), total_counts.end(), [&](int c){return c >= min_ao;}))>0 ){
@@ -564,6 +565,7 @@ void process_mpileup_line(std::vector<std::string> line, int nsamples,bool noind
 		}
 
 		if(ml1.sample_with_min_ao==true){
+			//printf("line out: %s",ml1.counts_string.str());
 			cout << ml1.counts_string.str() << endl;
 		}
 	}	
@@ -577,8 +579,9 @@ void process_mpileup_line_onesample(std::vector<std::string> line,int sample,boo
     ml1.chr= line[0]; 
     ml1.pos = str_to_num(line[1]); 
     ml1.ref_base= line[2];
+    std::transform(ml1.ref_base.begin(), ml1.ref_base.end(), ml1.ref_base.begin(), ::toupper);
     ml1.print_common();
-	
+    
 	vector<int> total_counts(6,0);
 	int i = 3+ (sample-1)*3; //i=number(ID) of the concerned sample
 	ml1.reinitializing();
@@ -682,8 +685,8 @@ int main(int argc, char* argv[]) {
         getline(cin, line);
         l++;
     }
-	//int time = clock()/CLOCKS_PER_SEC;
-    //printf("Execution time = %d ms \n", time);
+	int time = clock()/CLOCKS_PER_SEC;
+    printf("Execution time = %d ms \n", time);
     
 }
 
