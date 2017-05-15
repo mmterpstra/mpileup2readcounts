@@ -493,7 +493,7 @@ void parse_bases_to_readcounts(mpileup_line& ml1, bool noindel,int BQcut, int mi
 				j++;
 				break;
 			default:
-				throw runtime_error("Unknown ref base: " );
+				break;
 		}   
     }
     
