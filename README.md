@@ -48,3 +48,10 @@ For each sample :
 - insertions 
 - deletions : in the example, for the first sample 6 deletions starting from position 7579643 + 1 are found
 
+## Using GNU parallel tool
+We first remove overlap in the bed using bedtools. Note that the header is removed here:
+```
+grep -v '^track' regions.bed | sort -k1,1 -k2,2n | bedtools merge -i stdin | awk '{print $1"\t"$2"\t"$3}' | sed 's/[[:space:]]/:/' | sed 's/[[:space:]]/-/' | parallel --keep-order "samtools mpileup -f ref.fa --region {} test.bam | sed 's/		/	*	*/g' | mpileup2readcounts 0 -5 false 0 | tail -n +2"
+```
+
+
