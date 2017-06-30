@@ -1,0 +1,8 @@
+language: cpp
+compiler:
+  - gcc
+install:
+  - sudo apt-get install samtools 
+script: 
+  - g++ -std=c++11 -O3 mpileup2readcounts.cc -o mpileup2readcounts
+#some test here?
